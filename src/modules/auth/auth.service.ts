@@ -16,10 +16,12 @@ import {
   NotFoundException,
 } from "../../utils/response/error.response";
 import { compareHash, generateHash } from "../../utils/security/hash.security";
-import { emailEvent } from "../../utils/event/email.event";
+import { emailEvent } from "../../utils/email/email.event";
 import { generateNumberOtp } from "../../utils/otp";
 import { createLoginCredentials } from "../../utils/security/token.security";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
+import { successResponse } from "../../utils/response/success.response";
+import { ILoginResponse } from "./auth.entities";
 class AuthService {
   private userModel = new UserRepository(UserModel);
   constructor() {}
@@ -71,7 +73,11 @@ class AuthService {
       );
     }
     const credentials = await createLoginCredentials(newUser);
-    return res.status(201).json({ message: "done", data: { credentials } });
+    return successResponse<ILoginResponse>({
+      res,
+      statusCode: 201,
+      data: { credentials },
+    });
   };
   loginWithGmail = async (req: Request, res: Response): Promise<Response> => {
     const { idToken }: IGmail = req.body;
@@ -89,7 +95,7 @@ class AuthService {
     }
 
     const credentials = await createLoginCredentials(user);
-    return res.json({ message: "done", data: { credentials } });
+    return successResponse<ILoginResponse>({ res, data: { credentials } });
   };
   /**
    *
@@ -109,12 +115,11 @@ class AuthService {
         lean: true,
       },
     });
-    console.log({ checkUserExist });
     if (checkUserExist) {
       throw new ConflictException("Email Exist");
     }
     const otp = generateNumberOtp();
-    const user = await this.userModel.createUser({
+    await this.userModel.createUser({
       data: [
         {
           username,
@@ -125,7 +130,7 @@ class AuthService {
       ],
     });
     emailEvent.emit("confirmEmail", { to: email, otp });
-    return res.status(201).json({ message: "Done", data: { user } });
+    return successResponse({ res, statusCode: 201 });
   };
   confirmEmail = async (req: Request, res: Response): Promise<Response> => {
     const { email, otp }: IConfirmEmailBodyInputsDTto = req.body;
@@ -149,7 +154,7 @@ class AuthService {
         $unset: { confirmEmailOtp: 1 },
       },
     });
-    return res.json({ message: "Done" });
+    return successResponse({ res });
   };
   login = async (req: Request, res: Response): Promise<Response> => {
     const { email, password }: ILoginBodyInputsDTto = req.body;
@@ -167,10 +172,7 @@ class AuthService {
     }
 
     const credentials = await createLoginCredentials(user);
-    return res.json({
-      message: "Done",
-      data: { credentials },
-    });
+    return successResponse<ILoginResponse>({ res, data: { credentials } });
   };
   sendForgotCode = async (req: Request, res: Response): Promise<Response> => {
     const { email }: IForgotCodeBodyInputsDTto = req.body;

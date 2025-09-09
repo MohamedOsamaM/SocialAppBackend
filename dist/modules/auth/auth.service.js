@@ -4,10 +4,11 @@ const User_model_1 = require("../../DB/model/User.model");
 const user_repository_1 = require("../../DB/repository/user.repository");
 const error_response_1 = require("../../utils/response/error.response");
 const hash_security_1 = require("../../utils/security/hash.security");
-const email_event_1 = require("../../utils/event/email.event");
+const email_event_1 = require("../../utils/email/email.event");
 const otp_1 = require("../../utils/otp");
 const token_security_1 = require("../../utils/security/token.security");
 const google_auth_library_1 = require("google-auth-library");
+const success_response_1 = require("../../utils/response/success.response");
 class AuthService {
     userModel = new user_repository_1.UserRepository(User_model_1.UserModel);
     constructor() { }
@@ -53,7 +54,11 @@ class AuthService {
             throw new error_response_1.BadRequestException("fail to signup with gmail please try again later");
         }
         const credentials = await (0, token_security_1.createLoginCredentials)(newUser);
-        return res.status(201).json({ message: "done", data: { credentials } });
+        return (0, success_response_1.successResponse)({
+            res,
+            statusCode: 201,
+            data: { credentials },
+        });
     };
     loginWithGmail = async (req, res) => {
         const { idToken } = req.body;
@@ -68,7 +73,7 @@ class AuthService {
             throw new error_response_1.NotFoundException("not register account or registered with another provider");
         }
         const credentials = await (0, token_security_1.createLoginCredentials)(user);
-        return res.json({ message: "done", data: { credentials } });
+        return (0, success_response_1.successResponse)({ res, data: { credentials } });
     };
     signup = async (req, res) => {
         let { username, email, password } = req.body;
@@ -80,12 +85,11 @@ class AuthService {
                 lean: true,
             },
         });
-        console.log({ checkUserExist });
         if (checkUserExist) {
             throw new error_response_1.ConflictException("Email Exist");
         }
         const otp = (0, otp_1.generateNumberOtp)();
-        const user = await this.userModel.createUser({
+        await this.userModel.createUser({
             data: [
                 {
                     username,
@@ -96,7 +100,7 @@ class AuthService {
             ],
         });
         email_event_1.emailEvent.emit("confirmEmail", { to: email, otp });
-        return res.status(201).json({ message: "Done", data: { user } });
+        return (0, success_response_1.successResponse)({ res, statusCode: 201 });
     };
     confirmEmail = async (req, res) => {
         const { email, otp } = req.body;
@@ -120,7 +124,7 @@ class AuthService {
                 $unset: { confirmEmailOtp: 1 },
             },
         });
-        return res.json({ message: "Done" });
+        return (0, success_response_1.successResponse)({ res });
     };
     login = async (req, res) => {
         const { email, password } = req.body;
@@ -137,10 +141,7 @@ class AuthService {
             throw new error_response_1.NotFoundException("invalid login data");
         }
         const credentials = await (0, token_security_1.createLoginCredentials)(user);
-        return res.json({
-            message: "Done",
-            data: { credentials },
-        });
+        return (0, success_response_1.successResponse)({ res, data: { credentials } });
     };
     sendForgotCode = async (req, res) => {
         const { email } = req.body;
